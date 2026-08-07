@@ -1,0 +1,547 @@
+name: Gaizer
+description: Enrichissement multi-sources à validation humaine. Interroge les stash-boxes
+  configurées dans Stash (clés lues côté serveur, rien à ressaisir) et TOUS les
+  scrapers performer installés qui supportent la recherche par nom, agrège avec
+  notes de fiabilité, signale les divergences, et propose les changements sous forme
+  de tags à valider. Rien n'est écrit sans ton accord. — Requiert Stash 0.25+ pour
+  le panneau d'interface (vérifié sur 0.31.1).
+version: 0.65.0
+url: https://github.com/StarGaiser/Stash-Gaiser
+ui:
+  javascript:
+  - gaizer.js
+  - gaizer_page.js
+exec:
+- python3
+- '{pluginDir}/gaizer.py'
+interface: raw
+settings:
+  scrapersList:
+    displayName: Performer scrapers to use
+    description: 'Liste CSV pour RESTREINDRE les scrapers appelés. Vide (défaut)
+      : tous les scrapers performer installés supportant la recherche par nom sont
+      interrogés. NB — les scrapers par-URL uniquement (EricVideos, BelAmi, CockyBoys…)
+      ne peuvent pas être interrogés par nom : limite du scraper, pas du plugin.'
+    type: STRING
+  scrapersExclude:
+    displayName: Scrapers to exclude
+    description: Liste CSV de scrapers à NE PAS interroger (ex. "Bromo, GayWire").
+    type: STRING
+  useStashBoxes:
+    displayName: Use the configured stash-boxes
+    description: (Défaut activé) Interroge les stash-boxes configurées dans Stash,
+      avec leurs clés déjà en place.
+    type: BOOLEAN
+  createMissing:
+    displayName: Create unknown entities (scenes)
+    description: '(Défaut activé) Lors de l''enrichissement des scènes en mode auto
+      : les studios inconnus sont créés RATTACHÉS à leur parent (The Gay Office
+      → Men.com) et les performers inconnus créés en fiche minimale marquée "Gaizer:créé",
+      complétée ensuite par l''enrichissement des performers. Désactivé : simplement
+      signalés.'
+    type: BOOLEAN
+  useUrlPass:
+    displayName: URL pass (per-URL scrapers)
+    description: (Défaut activé) Après la recherche par nom, scrape les URLs de
+      fiches découvertes (stash-boxes) via les scrapers par-URL (EricVideos, BelAmi,
+      CockyBoys…). Les URLs retenues sont aussi proposées pour ajout à la fiche
+      du performer.
+    type: BOOLEAN
+  useExtraSources:
+    displayName: Extra sources (Wikipedia, ADE)
+    description: (Défaut activé) Complète avec Wikipedia et AdultDVDEmpire (sans
+      clé).
+    type: BOOLEAN
+  aiDefault:
+    displayName: Default AI (provider:model)
+    description: 'Format « fournisseur:modèle », par exemple « mistral:mistral-large-latest
+      », « openrouter:anthropic/claude-3.5-sonnet » ou « ollama:llama3.2 ». Fournisseurs
+      connus : openai, mistral, anthropic, openrouter, groq, deepseek, together,
+      perplexity, google, xai (en ligne) ; ollama, lmstudio, llamacpp, vllm (local,
+      sans clé). En ajouter d''autres : fichier llm_providers.yml du dossier du
+      plugin.'
+    type: STRING
+  aiBio:
+    displayName: AI for factual bios
+    description: Synthèse des biographies. Vide = aiDefault ; les deux vides = pas
+      de LLM, meilleure source brute.
+    type: STRING
+  aiBiohot:
+    displayName: AI for the hot bio
+    description: 'Bio crue et directe dans le champ custom bio_hot (séparée de la
+      bio officielle) : style de l''acteur, matos, partenaires et studios récurrents
+      CALCULÉS depuis les scènes de la collection. Alimente aussi reco_data (JSON)
+      pour le futur moteur de recommandation. Vide = aiDefault.'
+    type: STRING
+  biohotPrompt:
+    displayName: Hot bio — prompt instructions
+    description: 'Instructions données au modèle pour la présentation. Vide = les
+      instructions par défaut, traduites dans votre langue. Repères remplacés avant
+      envoi : {nom}, {langue}. Modifiable plus confortablement depuis l''onglet
+      Rédaction du panneau GZ.'
+    type: STRING
+  biohotTemperature:
+    displayName: Hot bio — temperature (0.0-1.5)
+    description: (Défaut 0.7) Créativité du LLM pour la bio hot. Les usages factuels
+      (bios, synopsis) restent à 0.2. Vider = retour au défaut.
+    type: STRING
+  generateBioHot:
+    displayName: Generate the hot bio
+    description: (Défaut activé, si une IA est configurée) Se génère une seule fois
+      par performer ; supprimer le champ bio_hot pour régénérer.
+    type: BOOLEAN
+  aiSynopsis:
+    displayName: AI for scene synopses
+    description: Synopsis factuel en français, synthèse des descriptions sources.
+      Vide = aiDefault ; sans IA, la meilleure description brute est reprise.
+    type: STRING
+  mistralApiKey:
+    displayName: Mistral API key
+    type: STRING
+  openaiApiKey:
+    displayName: OpenAI API key
+    type: STRING
+  applyMode:
+    displayName: Apply mode (manual / seuil / auto)
+    description: 'manual (défaut) : tout passe par des propositions (tags) à valider.
+      seuil : propositions + tâche « masse » qui applique les recommandations ★
+      dont la note dépasse le seuil. auto : la valeur la plus probable est TOUJOURS
+      appliquée d''office, quel que soit son score — pour qui ne veut pas passer
+      son temps à avaliser ; la fiabilité et les sources restent visibles sur chaque
+      fiche (champ enrich_sources + pied de bio).'
+    type: STRING
+  autoAcceptThreshold:
+    displayName: Bulk approval threshold (score /10)
+    description: (Défaut 7.5) Utilisé par la tâche « Appliquer les recommandations
+      (masse) » en mode seuil.
+    type: STRING
+  annotateBio:
+    displayName: « Data reliability » bio footer
+    description: '(Défaut DÉSACTIVÉ depuis la 0.38) Recopie dans la biographie la
+      liste des valeurs, leurs notes et leurs sources. Le panneau de la fiche présente
+      la même information en tableau repliable : ce pied fait double emploi et occupe
+      la biographie. Tâche « Retirer le pied de biographie » pour l''effacer des
+      fiches existantes.'
+    type: BOOLEAN
+  applyImages:
+    displayName: Apply images from sources
+    description: (Défaut activé) En mode auto, la photo de la meilleure source est
+      posée sur les performers qui n'en ont pas (champ image standard de Stash).
+    type: BOOLEAN
+  positionAsTag:
+    displayName: Position as a standard tag
+    description: (Défaut activé) La position (champ custom hérité) est aussi posée
+      comme TAG standard Stash sur le performer — filtrable dans toute l'interface.
+    type: BOOLEAN
+  autoMergeDuplicates:
+    displayName: Auto-merge safe duplicates
+    description: '(Défaut activé) En modes auto/seuil, les doublons dont la note
+      atteint autoAcceptThreshold sont FUSIONNÉS automatiquement — la fiche supprimée
+      est toujours une fiche créée par le plugin, jamais le référentiel. En dessous
+      du seuil (ou en mode manual) : signalement seulement.'
+    type: BOOLEAN
+  tagsExclude:
+    displayName: Tags never to apply (comma separated)
+    description: 'Bruit des sources qu''aucun tri ne réutilisera : 4K, HD, Series…
+      Comparaison insensible à la casse et à la ponctuation ; un motif avec * :
+      "bonus*" (préfixe), "*videos" (suffixe), "*pussy*" (n’importe où). Lancer
+      d''abord la tâche « Rapport des tags » pour décider sur pièces.'
+    type: STRING
+  refreshDays:
+    displayName: Data freshness (days, 0 = never)
+    description: 'Une entité dont l''enrichissement date de plus de N jours redevient
+      une cible des tâches « Enrichir… ». Permet un entretien automatique via le
+      Scheduler. 0 (défaut) : une entité complète n''est jamais retouchée.'
+    type: STRING
+  language:
+    displayName: Plugin language (en, fr, de, es, it, pt, nl)
+    description: Langue des étiquettes, des messages ET des textes rédigés. Laisser
+      VIDE pour suivre la langue que vous avez réglée dans Stash. fr, en, de, es,
+      it, pt, nl.
+    type: STRING
+  dryRun:
+    displayName: Simulation mode (no writes)
+    description: (Défaut désactivé) Les tâches calculent tout et journalisent ce
+      qu'elles AURAIENT écrit, sans rien modifier dans Stash. Pour éprouver un réglage
+      sur un lot avant de l'appliquer.
+    type: BOOLEAN
+  llmDelayMs:
+    displayName: Delay between AI calls (milliseconds)
+    description: (Défaut 600) Pause entre deux appels au fournisseur d'IA. Les rafales
+      déclenchent des limites de débit qui font échouer des générations ; 0 pour
+      désactiver.
+    type: STRING
+  maxLlmCalls:
+    displayName: AI call cap per task (0 = unlimited)
+    description: Borne la consommation du fournisseur d'IA sur un traitement de
+      masse. Au-delà, les générations sont sautées (les données factuelles continuent
+      d'être appliquées) — relancer la tâche pour poursuivre.
+    type: STRING
+  applySceneCovers:
+    displayName: Prefer official covers
+    description: (Défaut ACTIVÉ) L'image de la source la plus fiable remplace la
+      vignette extraite de la vidéo, plus représentative du contenu. Ce remplacement
+      n'est pas restaurable ; décocher pour conserver les vignettes générées.
+    type: BOOLEAN
+  strongMergeThreshold:
+    displayName: Strong merge threshold (full deduplication)
+    description: (Défaut 9.0) Note à partir de laquelle la tâche « Dédoublonnage
+      complet » fusionne une paire même entre deux fiches du référentiel. En dessous,
+      la paire est seulement signalée.
+    type: STRING
+  batchSize:
+    displayName: Task batch size
+    description: Nombre d'entités traitées par exécution des tâches « Enrichir…
+      ». Monter (ex. 1000) pour un traitement massif en une seule tâche ; chaque
+      entité prend de quelques secondes à ~2 min selon les sources.
+    type: STRING
+  proposalTagPrefix:
+    displayName: Prefix of the plugin's tags
+    description: (Défaut "Gaizer")
+    type: STRING
+  llmApiKey:
+    displayName: Generic API key (any provider)
+    type: STRING
+    description: Utilisée pour le fournisseur choisi dans « IA par défaut » lorsqu'il
+      n'a pas de réglage dédié. Permet d'employer n'importe quel service — OpenRouter,
+      Groq, DeepSeek, Together, un service maison… — sans nouveau réglage.
+  openrouterApiKey:
+    displayName: OpenRouter API key
+    type: STRING
+    description: Accès à des centaines de modèles par une seule clé.
+  groqApiKey:
+    displayName: Groq API key
+    type: STRING
+  deepseekApiKey:
+    displayName: DeepSeek API key
+    type: STRING
+  googleApiKey:
+    displayName: Google (Gemini) API key
+    type: STRING
+  lmstudioUrl:
+    displayName: LM Studio address
+    type: STRING
+    description: Par défaut http://localhost:1234 — à changer si le service tourne
+      sur une autre machine.
+  groupMinScenes:
+    displayName: Minimum parts to create a group
+    description: '(Défaut 2) Une série dont une seule partie figure dans la collection
+      est signalée mais pas créée : il manque peut-être la suite, ou le titre porte
+      un nombre qui n''est pas un numéro de partie.'
+    type: STRING
+  anthropicApiKey:
+    displayName: Anthropic API key
+    type: STRING
+  perplexityApiKey:
+    displayName: Perplexity API key
+    type: STRING
+  togetherApiKey:
+    displayName: Together API key
+    type: STRING
+  xaiApiKey:
+    displayName: xAI API key
+    type: STRING
+  ollamaUrl:
+    displayName: Ollama address
+    type: STRING
+  llamacppUrl:
+    displayName: llama.cpp address
+    type: STRING
+  vllmUrl:
+    displayName: vLLM address
+    type: STRING
+  tagProfile:
+    displayName: Collection profile (optional)
+    description: 'gay, hetero, lesbien, bi, pan, trans ou mixte. Sert uniquement
+      à affiner les SUGGESTIONS de tags à écarter : aucun tag n''est jamais retiré
+      sans votre validation. Laisser vide pour ne s''appuyer que sur les statistiques
+      de votre collection.'
+    type: STRING
+  autoInstallScrapers:
+    displayName: Install missing scrapers
+    description: 'Installe automatiquement les scrapers du catalogue qui correspondent
+      aux studios de votre médiathèque. DÉSACTIVÉ par défaut : un scraper est du
+      code tiers qui s''exécutera sur votre machine et interrogera des sites en
+      votre nom. Laissé décoché, le plugin se contente de signaler ce qui manque.'
+    type: BOOLEAN
+  scraperSource:
+    displayName: Scraper catalogue
+    description: Adresse du catalogue interrogé. Vide = le catalogue communautaire
+      officiel de Stash.
+    type: STRING
+  visionEnvoiImages:
+    displayName: Send thumbnails to the vision model
+    description: DÉSACTIVÉ par défaut. Cette fonction transmet des IMAGES de votre
+      médiathèque à un modèle — y compris installé chez vous. Le reste du plugin
+      n'envoie que du texte. Une image est identifiante, peut être conservée par
+      le fournisseur, et expose des personnes qui n'ont rien demandé. Ne l'activer
+      qu'en connaissance de cause.
+    type: BOOLEAN
+  aiVision:
+    displayName: AI for reading images (provider:model)
+    description: 'Modèle capable de lire une image, au format « fournisseur:modèle
+      ». Il ne sert qu''à LIRE le texte visible — filigranes, adresses, titres incrustés
+      — jamais à identifier des personnes. Exemples : mistral:pixtral-12b, ollama:llava.'
+    type: STRING
+  visionPrompt:
+    displayName: Vision — prompt instructions
+    description: Vide = les instructions par défaut, traduites dans votre langue.
+      Elles interdisent explicitement d'identifier des personnes ; les remplacer
+      vous en rend responsable.
+    type: STRING
+tasks:
+- name: Enrich incomplete performers
+  description: 'Multi-source enrichment of incomplete performers: stash-boxes, installed
+    name scrapers, URL pass, optional extra sources. Sources are scored, the best
+    value is marked ★.'
+  defaultArgs:
+    mode: enrich_performers
+- name: Apply accepted proposals
+  description: Writes the proposals of performers tagged « accept », then removes
+    the proposal tags.
+  defaultArgs:
+    mode: apply_accepted
+- name: Enrich incomplete scenes
+  description: 'Identification by FINGERPRINT (phash) via the stash-boxes: title,
+    date, studio, performers, source tags, factual synopsis, official cover. Falls
+    back to the file name when no fingerprint matches.'
+  defaultArgs:
+    mode: enrich_scenes
+- name: Enrich incomplete studios
+  description: Factual description, URL, logo, aliases and parent network from the
+    stash-boxes, plus collection statistics.
+  defaultArgs:
+    mode: enrich_studios
+- name: Apply accepted scenes
+  description: Fully applies the scenes tagged « accept », then removes the proposal
+    tags.
+  defaultArgs:
+    mode: apply_accepted_scenes
+- name: Apply recommendations (bulk)
+  description: Applies every ★ recommendation scoring at or above the threshold,
+    for performers and scenes. Proposals below the threshold are left for you.
+  defaultArgs:
+    mode: apply_recommended
+- name: Restore marked entities
+  description: Cancels the LAST enrichment pass of the marked entries (fields restored,
+    added tags, performers and URLs removed).
+  defaultArgs:
+    mode: restore_marked
+- name: Run report and hygiene
+  description: 'Figures for the last run: fingerprint vs file name vs no identification,
+    missing links, tags, performers created and enriched, studios. Also marks never-identified
+    scenes so they can be filtered.'
+  defaultArgs:
+    mode: rapport_run
+- name: Apply accepted studios
+  description: Applies the studios accepted from their page. Studios have no tags
+    in Stash, hence this dedicated task.
+  defaultArgs:
+    mode: apply_accepted_studios
+- name: Detect duplicate studios
+  description: Same for studios (Men.Com/Men.com, Falcon/Falcon Studios).
+  defaultArgs:
+    mode: detect_duplicates_studios
+- name: Merge marked studios
+  description: Manual merge of the studios marked from their page. Destructive.
+  defaultArgs:
+    mode: merge_marked_studios
+- name: Detect probable duplicates
+  description: 'Flags performers with nearly identical names. False alert: use the
+    « Not a duplicate » button, the pair is then exempt for good.'
+  defaultArgs:
+    mode: detect_duplicates
+- name: Merge marked duplicates
+  description: Manual merge of the performers marked from their page. Destructive.
+  defaultArgs:
+    mode: merge_marked
+- name: Position → standard tags
+  description: Turns the legacy « position » custom field into a standard Stash
+    tag on every performer.
+  defaultArgs:
+    mode: position_tags
+- name: Apply official covers
+  description: Fetches the official image of scenes already identified by fingerprint
+    and replaces the generated thumbnail. Scenes that already have one are skipped.
+  defaultArgs:
+    mode: apply_covers
+- name: Full deduplication (performers + studios)
+  description: Merges duplicates scoring at or above the strong threshold, including
+    between curated entries. Destructive — turn on simulation mode first to see
+    the list without changing anything.
+  defaultArgs:
+    mode: dedoublonnage_complet
+- name: Agent status
+  description: Health of the AI provider in plain language, current pause and its
+    resume date, pending work, last incident.
+  defaultArgs:
+    mode: etat_agent
+- name: Resume AI generation
+  description: Lifts the pause once its date has passed (forcer=1 to override) and
+    regenerates the missing texts.
+  defaultArgs:
+    mode: reprendre_ia
+- name: Switch plugin language
+  description: 'Aligns the installation with the « language » setting: renames the
+    tags already in place and translates the task names. No data is lost.'
+  defaultArgs:
+    mode: migrer_langue
+- name: Gaizer
+  description: Technical entry point used by the buttons shown on the pages. Nothing
+    to run manually from here.
+  defaultArgs:
+    mode: noop
+- name: Tag report
+  description: Tag frequencies, near-duplicates and rare tags — the material for
+    deciding on a normalisation. Read-only.
+  defaultArgs:
+    mode: rapport_tags
+- name: Regenerate hot bios
+  description: Redoes the hot bios generated before the scenes were linked, hence
+    without partners. Argument toutes=1 to redo them all.
+  defaultArgs:
+    mode: regenerate_biohot
+- name: Enrich one performer
+  description: Enriches a single performer — called by the button on the page.
+  defaultArgs:
+    mode: enrich_one_performer
+- name: Enrich one scene
+  description: Enriches a single scene — called by the button on the page.
+  defaultArgs:
+    mode: enrich_one_scene
+- name: Enrich one studio
+  description: Enriches a single studio — called by the button on the page.
+  defaultArgs:
+    mode: enrich_one_studio
+- name: Clear proposals
+  description: Removes the proposal marker and value tags. Traceability tags are
+    kept.
+  defaultArgs:
+    mode: clear_proposals
+- name: Restore settings
+  description: 'Remet en place les réglages sauvegardés par le plugin. À utiliser
+    si la configuration a été vidée : la mutation configurePlugin de Stash remplace
+    toute la table quand un outil n''écrit qu''une seule clé.'
+  defaultArgs:
+    mode: restaurer_reglages
+- name: Remove excluded tags
+  description: Détache des scènes les tags visés par le réglage « Tags à ne jamais
+    appliquer ». Les tags subsistent dans Stash, seul le lien est retiré. Essayer
+    d'abord en mode simulation.
+  defaultArgs:
+    mode: purger_tags_exclus
+- name: Rebuild multi-part movies
+  description: Regroupe les scènes d'un même film (Part 2, Chapitre 3, Volume 1…)
+    dans un groupe Stash, avec leur numéro d'ordre. L'information ne venant d'aucune
+    source, chaque série reçoit une note de confiance ; seules celles au-dessus
+    du seuil sont créées en mode auto. Les scènes déjà rattachées à un groupe ne
+    sont pas touchées.
+  defaultArgs:
+    mode: detect_groupes
+- name: Suggest tags to exclude
+  description: 'Examine les tags de votre collection et propose ceux qui n''y distinguent
+    rien : présents sur presque toutes les scènes, purement techniques (qualité,
+    édition), ou sur une seule scène. Aucune écriture — la liste est à recopier
+    dans le réglage « Tags à ne jamais appliquer » après examen.'
+  defaultArgs:
+    mode: suggerer_tags_exclus
+- name: Normalise positions and roles
+  description: 'Range les positions en texte libre sur deux axes distincts : position
+    (actif, passif, versatile) et rapport de pouvoir (dominant, soumis, permutant).
+    Ce qui n''est pas reconnu est conservé tel quel. Aucune source ne fournit cette
+    information : elle se renseigne depuis le panneau de chaque fiche.'
+  defaultArgs:
+    mode: normaliser_roles
+- name: Remove biography footer
+  description: Efface des biographies le pied « Fiabilité des données », que le
+    panneau de la fiche présente désormais en tableau. Le texte qui le précède est
+    conservé intact. Essayer en mode simulation d'abord.
+  defaultArgs:
+    mode: retirer_pied_bio
+- name: Suggest positions and roles (AI)
+  description: 'Relit la documentation déjà présente sur chaque fiche — biographie,
+    présentation, étiquettes de ses scènes — pour y repérer une mention EXPLICITE
+    du rôle. Le modèle doit citer le passage, et cette citation est vérifiée présente
+    avant d''être retenue : rien n''est déduit d''une morphologie, d''une nationalité
+    ou d''un type de scène. Une fiche sans mention reste vide. Les valeurs trouvées
+    sont marquées « suggéré » ; les modifier vaut confirmation.'
+  defaultArgs:
+    mode: deduire_roles
+- name: Check fields inherited from an import
+  description: 'Confronte les champs personnalisés laissés par un import (sexe_type,
+    position…) aux valeurs que le plugin a arbitrées. Ces champs survivent sans
+    jamais être relus : rien ne signale qu''ils disent le contraire des sources,
+    et un texte généré peut reprendre le mauvais. Aucune écriture : le rapport dit
+    ce qui diverge, vous tranchez.'
+  defaultArgs:
+    mode: controler_heritage
+- name: Tidy fields inherited from an import
+  description: 'Verse dans les champs natifs de Stash ce qu''un import avait mis
+    dans des champs personnalisés (longueur, taille, poids), puis retire ceux qui
+    ne renvoient plus à rien. Rien n''est écrasé : un champ natif déjà rempli est
+    laissé tel quel. « sexe_type » est conservé, son arbitrage vous revenant. Essayer
+    en simulation d''abord.'
+  defaultArgs:
+    mode: ranger_champs_herites
+- name: Remove values with no source backing
+  description: 'Vide les champs natifs de Stash (longueur, poids, taille) dont enrich_sources
+    ne montre aucune source. Une valeur venue d''un import s''affiche comme une
+    valeur établie : rien ne les distingue. Ce qui est retiré n''est pas forcément
+    faux, seulement invérifiable — le prochain enrichissement le rétablira s''il
+    est vrai, avec sa provenance. Argument « champs » pour restreindre.'
+  defaultArgs:
+    mode: retirer_non_confirme
+- name: Delete an inherited field
+  description: Supprime un champ personnalisé d'import sur toute la collection.
+    Argument « champ » obligatoire. Les champs produits par le plugin sont refusés.
+  defaultArgs:
+    mode: retirer_champ_herite
+- name: Mark imported roles as suggested
+  description: 'Signale comme non confirmés les positions et rapports de pouvoir
+    venus d''un import. La marque ne change ni la valeur ni son usage : elle rend
+    visible ce qu''on ne sait pas. Le panneau les affiche avec une pastille ; les
+    modifier vaut confirmation. Argument « motif » pour préciser l''origine.'
+  defaultArgs:
+    mode: marquer_roles_importes
+- name: Inspect what sources say about a performer
+  description: 'Montre tout ce que les sources disent d''un interprète, champ par
+    champ, et pourquoi chaque valeur a été retenue ou non : vide et donc écrite,
+    déjà remplie à l''identique, en conflit, ou fournie par aucune source. Lève
+    l''ambiguïté entre « rien collecté » et « rien écrit ». Arguments : performer_id
+    ou nom. Aucune écriture.'
+  defaultArgs:
+    mode: inspecter_collecte
+- name: Align conflicts with the sources
+  description: 'ÉCRASE une valeur de fiche par celle des sources, quand celles-ci
+    sont largement d''accord. C''est l''exception explicite au principe « rien n''est
+    écrasé » : à n''utiliser que si l''on sait la valeur de la fiche peu fiable.
+    Les écarts d''un ou deux centimètres sont ignorés (arrondis de conversion).
+    L''ancienne valeur passe dans l''historique, donc « Annuler le dernier passage
+    » la rétablit. Arguments : note (défaut 9.0), champs. Simuler d''abord.'
+  defaultArgs:
+    mode: arbitrer_conflits
+- name: Check the health of the sources
+  description: 'Interroge réellement chaque source configurée et dit laquelle répond
+    encore, et quels champs en sortent. Aucun test ne détecte qu''une source a changé
+    de format ou cessé de répondre : cette tâche comble cet angle mort. Elle ne
+    juge pas la justesse des données. Argument « noms » pour choisir les fiches
+    interrogées.'
+  defaultArgs:
+    mode: sante_sources
+- name: Suggest missing scrapers
+  description: Compare les studios de votre médiathèque et les sites cités sur les
+    fiches au catalogue de scrapers, et signale ceux qui vous seraient utiles sans
+    être installés. N'installe rien sans l'argument « installer=1 » ou le réglage
+    correspondant. La détection se lance aussi d'elle-même une fois par jour, au
+    bout de l'enrichissement des scènes et des studios.
+  defaultArgs:
+    mode: proposer_scrapers
+- name: Read watermarks on thumbnails
+  description: 'Pour les scènes SANS STUDIO, lit le texte visible sur la vignette
+    — filigrane, logo, adresse — et propose le studio correspondant. N''identifie
+    jamais de personnes. Rien n''est écrit sur la scène : la lecture est une hypothèse,
+    consignée dans un champ dédié. Exige le réglage « Envoyer les vignettes au modèle
+    de vision », désactivé par défaut. Argument relire=1 pour reprendre des scènes
+    déjà lues.'
+  defaultArgs:
+    mode: lire_vignettes

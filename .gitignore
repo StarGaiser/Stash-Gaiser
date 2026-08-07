@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+# État local du plugin : sauvegarde des réglages, pause IA, incidents.
+# Jamais versionné (spécifique à l'installation).
+etat.json
+*.log
+.env
+tests/fixtures_locales/
+.coverage
+htmlcov/
+tests/identite_locale.py
+
+# Notes de travail : arbitrages en cours sur la médiathèque,
+# délibérations. Elles décrivent une collection réelle.
+../gaizer-notes-privees/

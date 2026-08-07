@@ -1,0 +1,45 @@
+# enrich_config.yml — surcharges de la configuration d'Gaizer.
+#
+# Ce fichier est OPTIONNEL : les défauts vivent dans scoring.py
+# (DEFAUTS). Ne mettre ici que ce qu'on veut changer — la fusion se
+# fait clé à clé. Supprimer le fichier = retour aux défauts.
+#
+# ── familles ─────────────────────────────────────────────────────────
+# Sources apparentées (même plateforme / même base de données) : elles
+# ne comptent que pour UN vote au consensus. Trois sites Aylo d'accord
+# ne font pas trois confirmations.
+#
+# familles:
+#   aylo: [men, bromo, milehighmedia_gay, seancody, gaywire]
+#   gamma: [falconstudios, hothouse, ragingstallion, nextdoorstudios]
+#
+# ── types ────────────────────────────────────────────────────────────
+# Rattachement des sources à un type (toute source non listée est
+# traitée en "studio", le défaut prudent) :
+#   editorial      annuaires vérifiant l'état civil (IAFD, GEVI)
+#   communautaire  bases contributives modérées (StashDB, PornDB)
+#   studio         sites commerciaux — partie prenante
+#   appoint        sources faibles (ADE)
+#
+# types:
+#   editorial: [iafd, gevi]
+#
+# ── fiabilite ────────────────────────────────────────────────────────
+# Matrice type × champ (0-1). "defaut" s'applique aux champs non
+# listés. Exemple : remonter la confiance des studios sur la carrière :
+#
+# fiabilite:
+#   studio:
+#     years_active: 0.75
+#
+# ── detecteurs ───────────────────────────────────────────────────────
+# date_tolerance_jours: 1      dates fusionnées si écart ≤ N jours
+# taille_tolerance_cm: 2       tailles fusionnées si écart ≤ N cm
+# penalite_rajeunissement: 2.5 studio plus jeune que l'éditorial
+# penalite_exageration: 1.5    mensuration studio > indépendante
+# penalite_incoherence: 3.0    carrière débutant avant 18 ans
+# bonus_famille: 1.0           par famille indépendante supplémentaire
+# bonus_max: 2.0
+#
+# detecteurs:
+#   penalite_rajeunissement: 3.0
