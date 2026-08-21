@@ -1,0 +1,80 @@
+name: Publier l'index de source
+
+# Stash sait installer un plugin depuis un « index de source » : une
+# URL que l'utilisateur ajoute une fois, et qui lui apporte ensuite
+# les mises à jour comme n'importe quel dépôt.
+#
+# Sans cet index, installer le plugin demande de télécharger une
+# archive, de la décompresser au bon endroit, et de recommencer à
+# chaque version. Avec, c'est un collage d'URL — et c'est ce qui
+# décide la plupart des gens à essayer.
+#
+# L'index est reconstruit à chaque poussée : une version publiée sans
+# index à jour serait invisible.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construire l'archive et l'index
+        run: |
+          set -euo pipefail
+          mkdir -p site/main
+
+          # L'archive porte le nom du plugin : c'est ce que Stash
+          # attend, et un nom divergent le rend introuvable.
+          zip -r site/main/gaizer.zip gaizer -x '*/__pycache__/*'
+
+          # Lecture SANS PyYAML : le runner ne l'embarque pas, et
+          # l'installer pour lire deux lignes serait disproportionné.
+          # Les deux champs sont sur une seule ligne, sans guillemets
+          # dans leur valeur — un test le vérifie côté dépôt.
+          VERSION=$(sed -n 's/^version: *//p' gaizer/gaizer.yml \
+                    | head -1 | tr -d '"'"'"'" ')
+          DESC=$(sed -n 's/^description: *//p' gaizer/gaizer.yml \
+                 | head -1)
+          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          SHA=$(sha256sum site/main/gaizer.zip | cut -d' ' -f1)
+
+          # L'index décrit ce que Stash proposera : sans description
+          # ni version, l'entrée existe mais personne ne sait quoi en
+          # faire.
+          cat > site/main/index.yml <<EOF
+          - id: gaizer
+            name: Gaizer
+            metadata:
+              description: ${DESC}
+            version: ${VERSION}
+            date: ${DATE}
+            path: gaizer.zip
+            sha256: ${SHA}
+            requires: []
+          EOF
+
+          cat site/main/index.yml
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploiement
+        uses: actions/deploy-pages@v4

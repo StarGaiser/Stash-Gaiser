@@ -1,0 +1,30 @@
+# tag_profiles.yml — familles de tags et profils de collection.
+#
+# Ce fichier est FACULTATIF : les familles courantes sont déjà connues
+# du plugin. N'écrire ici que pour en ajouter, en corriger, ou définir
+# un profil propre à votre collection.
+#
+# Les familles sont DESCRIPTIVES : elles disent ce qu'un tag est, pas
+# s'il faut l'écarter. Rien n'est exclu sans votre validation.
+#
+# Motifs acceptés, comme pour le réglage « Tags à ne jamais appliquer » :
+#   gay        correspondance exacte (n'atteint pas « Gay Massage »)
+#   *pussy*    le tag contient le mot
+#   bonus*     le tag commence par
+#   *videos    le tag se termine par
+#
+# Exemple — ajouter une famille et un profil :
+#
+# familles:
+#   studio_maison:
+#     - "mon studio*"
+#
+# profils:
+#   ma_collection:
+#     description: Ce que contient ma médiathèque
+#     suggere: [format, edition, studio_maison]
+#     jamais: [identite, orientation]
+#
+# seuils:
+#   couverture_inutile: 0.90   # un tag sur 90 % des scènes ne trie rien
+#   occurrences_rares: 2

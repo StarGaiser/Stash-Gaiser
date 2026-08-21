@@ -1,0 +1,7 @@
+# Dépendances du plugin Enrich Agent (à installer dans le conteneur Stash)
+stashapp-tools>=0.2.58
+requests>=2.31
+cloudscraper>=1.2.71
+beautifulsoup4>=4.12
+lxml>=5.0
+PyYAML>=6.0

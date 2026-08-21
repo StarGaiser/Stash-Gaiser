@@ -1,0 +1,78 @@
+# Configuration des outils d'analyse.
+#
+# Chaque exclusion porte une raison. Une règle désactivée sans
+# justification finit par masquer un défaut réel : c'est arrivé sur ce
+# projet — une destruction d'étiquettes échappait à la simulation
+# depuis son introduction, et rien ne le signalait.
+
+[tool.ruff]
+line-length = 79
+target-version = "py311"
+exclude = ["tests/fixtures_locales"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",      # style
+    "F",           # erreurs réelles
+    "B",           # pièges classiques
+    "S",           # sécurité
+    "C4",          # compréhensions
+    # Le seuil « max-complexity » plus bas ne s'appliquait PAS : il
+    # était défini sans que la règle qui l'emploie soit activée. Un
+    # garde-fou que personne ne vérifie n'en est pas un.
+    "C90",         # complexité cyclomatique
+    "SIM",         # simplifications
+    "RUF",         # règles propres à ruff
+    "N",           # nommage
+    "PL",          # erreurs de logique
+    "PERF",        # performance
+]
+ignore = [
+    # Le code est en français : les noms suivent la langue du domaine,
+    # pas les conventions anglaises.
+    "N802", "N803", "N806", "N815", "N816",
+    # Une tâche de plugin ne doit JAMAIS tomber sur une fiche : une
+    # exception non capturée interromprait le lot entier. Les captures
+    # larges sont délibérées et journalisées.
+    "BLE001",
+    # Le plugin travaille sur des dates locales, sans notion de fuseau.
+    "DTZ011", "DTZ005", "DTZ007",
+    # L'en-tête d'encodage est conservé : le code contient des accents
+    # et le fichier est lu par des outils tiers.
+    "UP009",
+    # Les longues fonctions de tâche sont lisibles telles quelles ;
+    # les découper pour la métrique nuirait à la lecture.
+    "PLR0912", "PLR0913", "PLR0915", "PLR2004", "PLR0911", "PLR0917",
+    # Les imports différés cassent des cycles réels entre modules et
+    # évitent de charger un module lourd pour une tâche qui ne s'en
+    # sert pas. Ils sont délibérés, et peu nombreux.
+    "PLC0415",
+    # Les guillemets français et les tirets longs sont voulus : le
+    # texte affiché est en français.
+    "RUF001", "RUF002", "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Les tests emploient des valeurs en dur et des assertions : c'est leur
+# nature. Les mots de passe factices n'en sont pas.
+"tests/*" = ["S101", "S105", "S106", "S311", "PLR0915"]
+"tools/*" = ["S101", "T201"]
+# Les tables de traduction sont des DONNÉES : couper une phrase pour
+# tenir dans la marge la rendrait moins lisible aux traducteurs.
+"gaizer/i18n.py" = ["E501"]
+# sources.py porte des tables de correspondance de sites : mêmes
+# raisons. Le code y respecte la marge, pas les tables.
+"gaizer/sources.py" = ["E501"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.bandit]
+exclude_dirs = ["tests", "tools"]
+# B404/B603/B607 : appels à ffprobe, arguments toujours séparés, jamais
+# de shell. Vérifié par un test dédié plutôt que par la confiance.
+# B110 : une lecture de métadonnée qui échoue ne doit pas interrompre.
+skips = ["B404", "B603", "B607", "B110"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

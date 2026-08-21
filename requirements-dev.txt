@@ -1,0 +1,5 @@
+# Outils de vérification. Les tests n'ont besoin ni de Stash ni de
+# stashapp-tools : la dépendance est simulée dans tests/conftest.py.
+pytest>=7.0
+pyflakes>=3.0
+PyYAML>=6.0

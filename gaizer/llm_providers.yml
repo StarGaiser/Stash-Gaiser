@@ -1,0 +1,28 @@
+# llm_providers.yml — fournisseurs de modèles de langage.
+#
+# Ce fichier est FACULTATIF : les fournisseurs courants sont déjà
+# connus du plugin (openai, mistral, anthropic, openrouter, groq,
+# deepseek, together, perplexity, google, xai, ollama, lmstudio,
+# llamacpp, vllm). N'écrire ici que pour en AJOUTER un ou en modifier
+# un existant — la fusion se fait entrée par entrée.
+#
+# N'y mettez JAMAIS de clé d'API : elle se saisit dans les réglages du
+# plugin (champ indiqué par key_setting, sinon « llmApiKey »).
+#
+# Exemple — un service compatible OpenAI :
+#
+# monservice:
+#   url: https://api.monservice.com/v1/chat/completions
+#   model: mon-modele
+#   auth: bearer          # bearer | x-api-key | query | none
+#   format: openai        # openai | anthropic
+#   key_setting: monserviceApiKey
+#   headers:
+#     X-Extra: valeur
+#
+# Exemple — un modèle local déjà lancé sur le réseau :
+#
+# atelier:
+#   url: http://192.168.1.40:11434/v1/chat/completions
+#   model: mixtral
+#   auth: none
