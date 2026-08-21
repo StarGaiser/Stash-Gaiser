@@ -81,6 +81,12 @@ cd "$CIBLE"
 # place par celui qui lance les tests, jamais transporté.
 rm -rf tests/fixtures_locales
 
+# AGENTS.md est déjà exclu par .gitattributes (export-ignore), ce
+# que l'audit d'anonymat examine. Cette suppression est une seconde
+# barrière : si l'exclusion d'archive échouait, le fichier partirait
+# quand même.
+rm -f AGENTS.md
+
 # L'adresse du projet suit le nouveau compte.
 if [[ -f gaizer/gaizer.yml ]]; then
   python3 - "$COMPTE" "$DEPOT" <<'PY'
@@ -96,27 +102,53 @@ PY
 fi
 
 git init -q
-git add -A
+git branch -M main
 
 # L'identité des commits reste pseudonyme et LOCALE à ce dépôt :
 # la configuration globale de la machine n'est pas touchée.
 git config user.name "gaizer"
 git config user.email "gaizer@users.noreply.github.com"
 
-git commit -q -m "Gaizer — enrichissement de médiathèque Stash
+# Le « :- » de bash collerait un tiret devant l'adresse, que
+# l'audit prendrait pour un courriel : deux lignes lèvent
+# l'ambiguïté.
+DEFAUT_REMOTE="git@github.com:${COMPTE}/${DEPOT}.git"
+git remote add origin "${REMOTE:=$DEFAUT_REMOTE}"
 
-Plugin d'enrichissement pour Stash : complète interprètes, scènes et
-studios depuis plusieurs sources, arbitre les désaccords, détecte les
-doublons et reconstitue les films en plusieurs parties.
+# ── Reprendre l'historique déjà publié ───────────────────────────────
+# Sans cela, chaque publication repart de zéro et efface la
+# précédente : personne ne peut voir ce qui a changé.
+#
+# Le passé PRIVÉ n'est pas repris — il porte des dates, des rythmes
+# de travail et des tâtonnements qui disent des choses sur qui écrit.
+# L'historique public commence à la première publication qui suit.
+if git fetch -q origin main 2>/dev/null; then
+  git reset -q --soft FETCH_HEAD
+  echo "  ✓ historique public repris ($(git rev-list --count \
+        FETCH_HEAD) commit(s))"
+else
+  echo "  ✓ premier dépôt public : l'historique commence ici"
+fi
 
-Ce dépôt commence sans historique. Le développement s'est fait
-ailleurs, sur une collection réelle ; les documents de docs/ en
-gardent la mémoire — spécifications fonctionnelles et techniques,
-normes de codage nées des problèmes rencontrés, résultats de la
-validation empirique du moteur de notation, et chantiers ouverts."
+git add -A
 
-git branch -M main
-git remote add origin "git@github.com:${COMPTE}/${DEPOT}.git"
+# ── Le message, contrôlé avant d'être public ─────────────────────────
+MESSAGE="${MESSAGE_PUBLICATION:-}"
+if [ -z "$MESSAGE" ]; then
+  MESSAGE="Publication du $(date -u +%Y-%m-%d)"
+fi
+
+# Chemin absolu : à ce point, le dossier courant est la CIBLE,
+# où cet outil n'existe pas — il vit dans la source.
+python3 "$SOURCE/tools/auditer_message.py" "$MESSAGE" \
+  || { echo "✗ publication interrompue" >&2; exit 1; }
+
+if git diff --cached --quiet; then
+  echo "  ✓ rien de neuf à publier"
+else
+  git commit -q -m "$MESSAGE"
+  echo "  ✓ commit : $MESSAGE"
+fi
 
 echo
 echo "── Prêt ──"

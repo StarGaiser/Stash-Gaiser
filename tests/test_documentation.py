@@ -411,3 +411,75 @@ class TestGuideEtInventaire:
         guide = self._guide().lower()
         assert "exporter les réglages" in guide
         assert "aucune clé d'api" in guide
+
+
+class TestFichierDePassation:
+    """AGENTS.md permet à un agent de reprendre le travail sans
+    redécouvrir ce qui a déjà été appris.
+
+    Un fichier de passation périmé est pire qu'aucun : il envoie
+    chercher au mauvais endroit, et celui qui le lit croit savoir.
+    Ces contrôles vérifient ce qui peut l'être."""
+
+    def _agents(self):
+        f = RACINE / "AGENTS.md"
+        return f.read_text(encoding="utf-8") if f.exists() else ""
+
+    def test_il_existe(self):
+        assert self._agents(), "AGENTS.md absent"
+
+    def test_le_compte_de_tests_est_juste(self):
+        """C'est le premier chiffre qu'un agent vérifiera : le
+        trouver faux lui fera douter du reste."""
+        reel = sum(
+            len(re.findall(r"\n    def test_", f.read_text(
+                encoding="utf-8")))
+            for f in (RACINE / "tests").glob("test_*.py"))
+        m = re.search(r"(\d{3,})\s+tests", self._agents())
+        assert m, "aucun compte de tests"
+        annonce = int(m.group(1))
+        assert abs(annonce - reel) <= reel * 0.05, \
+            f"AGENTS.md : {annonce} ≠ {reel}"
+
+    def test_les_pieges_sont_consignes(self):
+        """Chacun a coûté du temps : les taire les ferait repayer."""
+        texte = self._agents()
+        for piege in ("configurePlugin", "PyYAML", "update_studio"):
+            assert piege in texte, piege
+
+    def test_la_regle_du_test_avant_le_code_est_dite(self):
+        """C'est ce qui gouverne tout le reste."""
+        texte = self._agents().lower()
+        assert "avant le code" in texte or "test avant" in texte
+
+    def test_les_deux_depots_sont_decrits(self):
+        """Travailler dans le dépôt public perdrait le travail à la
+        publication suivante."""
+        texte = self._agents()
+        assert "stash-gaizer" in texte and "Stash-Gaiser-public" in texte
+        assert "régénéré" in texte
+
+    def test_les_fichiers_cites_existent(self):
+        """Un chemin faux envoie chercher au mauvais endroit."""
+        manquants = []
+        for chemin in re.findall(r"`(docs/[\w_]+\.md)`",
+                                 self._agents()):
+            if not (RACINE / chemin).exists():
+                manquants.append(chemin)
+        assert manquants == [], manquants
+
+    def test_les_taches_citees_existent(self):
+        """Un exemple qui ne marche pas décourage d'essayer les
+        suivants."""
+        import ast
+        arbre = ast.parse(
+            (CODE / "gaizer.py").read_text(encoding="utf-8"))
+        modes = set()
+        for n in ast.walk(arbre):
+            if isinstance(n, ast.Assign):
+                for t in n.targets:
+                    if isinstance(t, ast.Name) and t.id == "TASKS":
+                        modes = {k.value for k in n.value.keys}
+        cites = set(re.findall(r'\\"mode\\": \\"(\w+)\\"',
+                               self._agents()))
+        assert cites <= modes, sorted(cites - modes)

@@ -1,0 +1,5 @@
+# AGENTS.md porte les chemins réels de la machine et
+# l'adresse des deux dépôts : document de travail, exclu de
+# l'archive publiable — c'est ce que l'audit d'anonymat
+# examine.
+AGENTS.md export-ignore

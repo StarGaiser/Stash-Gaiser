@@ -548,3 +548,47 @@ class TestFusionUnique:
         même code."""
         code = (CODE / "doublons.py").read_text(encoding="utf-8")
         assert "alias_list" in code and "aliases" in code
+
+
+class TestAucuneTraductionEnDouble:
+    """Deux fichiers d'interface portent chacun leur table de
+    traduction. C'est acceptable tant qu'ils ne se recouvrent pas :
+    le panneau et la fiche disent des choses différentes.
+
+    Mais deux clés existent des deux côtés, avec des valeurs
+    DIVERGENTES — « Aucun modèle configuré » y a deux formulations,
+    et « en cours » deux ponctuations. L'utilisateur voit le même
+    état décrit de deux façons selon l'écran, ce qui laisse croire à
+    deux états différents.
+
+    Le coût n'est pas la duplication mais la DIVERGENCE : corriger
+    l'une n'a pas corrigé l'autre, et personne ne l'a vu."""
+
+    def _table(self, nom):
+        code = (CODE / nom).read_text(encoding="utf-8")
+        i = code.find("  const L = {")
+        f = code.find("\n  };", i)
+        bloc = code[i:f]
+        return {c: re.search(rf"\n    {c}: \{{[^}}]*\}}",
+                             bloc).group(0)
+                for c in re.findall(r"\n    (\w+): \{", bloc)}
+
+    def test_aucune_cle_commune_ne_diverge(self):
+        panneau = self._table("gaizer_page.js")
+        fiche = self._table("gaizer.js")
+        divergentes = []
+        for cle in set(panneau) & set(fiche):
+            a = re.sub(r"\s+", " ", panneau[cle])
+            b = re.sub(r"\s+", " ", fiche[cle])
+            if a != b:
+                divergentes.append(cle)
+        assert divergentes == [], divergentes
+
+    def test_les_tables_restent_distinctes(self):
+        """Les fusionner créerait un fichier partagé que Stash
+        chargerait deux fois : le recouvrement doit rester PETIT, non
+        nul."""
+        panneau = self._table("gaizer_page.js")
+        fiche = self._table("gaizer.js")
+        commun = set(panneau) & set(fiche)
+        assert len(commun) <= 6, sorted(commun)

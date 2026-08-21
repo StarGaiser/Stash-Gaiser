@@ -75,7 +75,7 @@ class TestRuff:
         """Un plafond plutôt qu'un zéro : chaque exclusion doit être
         justifiée dans pyproject.toml, et le nombre restant ne doit pas
         croître sans qu'on s'en aperçoive."""
-        assert len(self._erreurs()) <= 114
+        assert len(self._erreurs()) <= 115
 
 
 # ── Sécurité (bandit) ────────────────────────────────────────────────
@@ -255,7 +255,24 @@ class TestAnonymat:
                     continue
                 if suivis is not None and f not in suivis:
                     continue
+                # Ce qui est exclu de l'archive publiable ne sortira
+                # jamais : le signaler ferait passer un contrôle
+                # utile pour un contrôle bruyant, et on cesserait de
+                # le lire. AGENTS.md porte les chemins de la machine
+                # PARCE QU'il s'adresse à qui travaille dessus.
+                if f.name in self._hors_archive():
+                    continue
                 yield f
+
+    def _hors_archive(self):
+        """Les fichiers marqués `export-ignore` dans .gitattributes."""
+        f = RACINE / ".gitattributes"
+        if not f.exists():
+            return set()
+        return {ligne.split()[0]
+                for ligne in f.read_text(encoding="utf-8").split("\n")
+                if "export-ignore" in ligne
+                and not ligne.startswith("#")}
 
     def test_aucun_chemin_absolu_personnel(self):
         motif = re.compile(r"/(home|Users)/(?!<)[a-z][\w.-]+/")

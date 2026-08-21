@@ -258,3 +258,74 @@ class TestWorkflowSurLeBonDepot:
         disparaître à la première régénération."""
         gabarit = RACINE / "tools" / "index-source.yml"
         assert gabarit.exists(), gabarit
+
+
+class TestHistoriquePublic:
+    """Le dépôt public était régénéré à chaque publication : « git
+    init » puis un commit unique, écrasant tout. Chaque publication
+    effaçait la précédente.
+
+    C'est ce qui protégeait l'anonymat au début — l'historique privé
+    porte des dates, des rythmes de travail, des tâtonnements qui
+    disent des choses sur qui écrit. Mais une fois le dépôt public
+    ouvert, repartir de zéro à chaque fois a un coût : personne ne
+    peut voir ce qui a changé, ni suivre le projet.
+
+    L'historique commence donc AU PROCHAIN PUBLICATION, sans reprendre
+    le passé : ce qui a précédé reste privé, ce qui suit est visible.
+
+    Trois conditions, chacune vérifiable :
+    — le message de publication ne doit porter aucune trace
+      personnelle, puisqu'il sera public ;
+    — l'identité des commits reste pseudonyme ;
+    — l'historique existant n'est jamais écrasé par une poussée
+      forcée, sans quoi le problème reviendrait.
+    """
+
+    def _script(self):
+        return (RACINE / "tools" /
+                "preparer_publication.sh").read_text(encoding="utf-8")
+
+    def test_l_historique_distant_est_repris(self):
+        """Sans cela, chaque publication repart de zéro."""
+        s = self._script()
+        assert "git fetch" in s or "git clone" in s, \
+            "le script doit reprendre l'historique distant"
+
+    def test_l_identite_reste_pseudonyme(self):
+        s = self._script()
+        assert 'user.name "gaizer"' in s
+        assert "noreply.github.com" in s
+
+    def test_l_identite_reste_locale_au_depot(self):
+        """Toucher la configuration globale changerait l'identité de
+        tous les autres dépôts de la machine."""
+        s = self._script()
+        assert "--global" not in s
+
+    def test_le_message_de_publication_est_controle(self):
+        """Il sera public : une trace personnelle y serait aussi
+        visible que dans un fichier."""
+        # Le contrôle vit dans un outil à part : écrire les motifs
+        # dans le script les aurait PUBLIÉS, ce qui révélerait
+        # précisément ce qu'ils protègent.
+        assert "auditer_message.py" in self._script()
+        outil = RACINE / "tools" / "auditer_message.py"
+        assert outil.exists()
+        assert "message_sans_trace" in outil.read_text(
+            encoding="utf-8")
+
+    def test_aucune_poussee_forcee_dans_le_script(self):
+        """Une poussée forcée écraserait l'historique qu'on vient de
+        se donner la peine de conserver."""
+        s = self._script()
+        assert "push --force" not in s and "push -f" not in s
+
+    def test_le_fichier_de_passation_n_est_pas_publie(self):
+        """AGENTS.md porte les chemins réels de la machine et
+        l'adresse des deux dépôts. C'est un document de TRAVAIL :
+        utile à qui reprend le projet, sans objet pour qui installe
+        le plugin, et sa publication trahirait l'anonymat que tout le
+        reste protège."""
+        s = self._script()
+        assert "rm -f AGENTS.md" in s
