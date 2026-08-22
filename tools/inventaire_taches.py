@@ -49,10 +49,15 @@ for cle, titre in GROUPES.items():
 # ── Ce qui ECRIT, et ce qui regarde ──────────────────────────────────
 # La distinction la plus utile a l'usage : une tache de lecture se
 # lance sans risque, une tache d'ecriture demande d'y penser.
+# Ce qui ne touche AUCUNE fiche. La distinction se juge sur l'effet,
+# non sur le nom : « detect_duplicates » commence par « detect » mais
+# POSE un tag sur chaque fiche suspecte. Le classer en lecture était
+# une contradiction avec sa propre description, dans le même tableau
+# — et l'inventaire sert précisément à décider si on peut lancer sans
+# y penser.
 LECTURE = {"rapport_run", "rapport_profil", "rapport_tags",
            "rapport_roles", "etat_agent", "controler_champs",
            "verifier_sources", "prompt_defaut", "suggerer_tags_exclus",
-           "detect_duplicates", "detect_studio_duplicates",
            "exporter_reglages", "noop"}
 
 lignes = ["# Inventaire des tâches", "",

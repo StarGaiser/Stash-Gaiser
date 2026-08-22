@@ -334,7 +334,7 @@ class TestIconesDOnglets:
     def test_l_absence_d_icone_ne_casse_rien(self, page):
         """Une version de Stash sans ces bibliothèques doit afficher
         le texte, non une page blanche."""
-        i = page.find("function Icone")
+        i = page.find("function Icone(props)")
         assert i > 0
         bloc = page[i:i + 700]
         assert "return null" in bloc or "!" in bloc
@@ -348,7 +348,7 @@ class TestIconesDOnglets:
     def test_l_icone_est_ignoree_par_les_lecteurs_d_ecran(self, page):
         """Le libellé la suit : la faire annoncer doublerait
         l'information."""
-        i = page.find("function Icone")
+        i = page.find("function Icone(props)")
         bloc = page[i:i + 700]
         assert "aria-hidden" in bloc or "ariaHidden" in bloc
 
@@ -649,3 +649,51 @@ class TestChaqueChampDitCeQuOnYMet:
         i = page.find("function _champArgument")
         bloc = page[i:i + 2500]
         assert "entre ${mini} et ${maxi}" in bloc
+
+
+class TestAccessibiliteDesChamps:
+    """Audit selon les règles d'interface de Vercel.
+
+    Deux points relevés, tous deux réels.
+
+    **La liste déroulante d'argument n'a aucun nom accessible.** Les
+    autres champs sont enveloppés dans un `<label>` ; celle-ci ne
+    porte ni étiquette, ni titre, ni invite — un lecteur d'écran
+    annonce « liste » sans dire de quoi.
+
+    **Les états changeants ne sont pas annoncés.** « lancé »,
+    « enregistré », un message d'erreur : ils apparaissent sans que
+    rien ne le signale. Quelqu'un qui ne voit pas l'écran ne sait pas
+    que son action a abouti — il relance, ou abandonne."""
+
+    def test_la_liste_d_argument_porte_un_nom(self, page):
+        # Deux blocs portent ce test : celui des RÉGLAGES, enveloppé
+        # dans un <label>, et celui des ARGUMENTS qui ne l'est pas.
+        # C'est le second qui a besoin d'un nom.
+        i = page.find("function _champArgument")
+        assert i > 0
+        j = page.find('if (forme === "choix")', i)
+        assert j > 0, "rendu du choix d'argument introuvable"
+        bloc = page[j:j + 900]
+        assert "aria-label" in bloc, bloc[:300]
+
+    def test_les_etats_sont_annonces(self, page):
+        """`aria-live="polite"` fait lire le changement sans
+        interrompre : c'est ce qu'il faut pour un état, non pour une
+        alerte."""
+        assert "aria-live" in page
+
+    def test_les_etats_de_fiche_sont_annonces(self, fiche_js):
+        assert "aria-live" in fiche_js
+
+    def test_l_annonce_est_polie(self, page):
+        """« assertive » interromprait ce que l'utilisateur est en
+        train de lire : réservé à ce qui presse."""
+        assert 'aria-live": "polite"' in page \
+            or "aria-live\": \"polite\"" in page
+
+
+@pytest.fixture(scope="module")
+def fiche_js():
+    return (RACINE / "gaizer" / "gaizer.js").read_text(
+        encoding="utf-8")

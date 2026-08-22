@@ -768,9 +768,19 @@ def _adresses_de(hote: str) -> list:
 def est_secret(nom: str) -> bool:
     """Un réglage porteur d'identifiant ne doit jamais être écrit sur
     disque ni journalisé."""
-    bas = (nom or "").lower()
-    return any(m in bas for m in ("key", "token", "secret", "password",
-                                  "passwd", "credential"))
+    # Les séparateurs sont retirés : « MOT_DE_PASSE » et
+    # « motDePasse » désignent la même chose, et l'un des deux
+    # échappait au filtre.
+    bas = re.sub(r"[^a-z0-9]", "", str(nom or "").lower())
+    return any(m in bas for m in (
+        # Formes anglaises.
+        "key", "token", "secret", "password", "passwd", "credential",
+        "auth", "bearer",
+        # Formes françaises : l'interface de ce plugin l'est, et un
+        # réglage y sera nommé en français tôt ou tard. Le défaut
+        # serait alors qu'une clé sorte dans un fichier qu'on
+        # transporte, sans que rien ne l'ait signalé.
+        "cle", "clef", "motdepasse", "jeton", "identifiant"))
 
 
 def _sauver_reglages(ctx):

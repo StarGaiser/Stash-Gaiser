@@ -483,3 +483,64 @@ class TestFichierDePassation:
         cites = set(re.findall(r'\\"mode\\": \\"(\w+)\\"',
                                self._agents()))
         assert cites <= modes, sorted(cites - modes)
+
+
+class TestSkillsDuProjet:
+    """Les skills sont copiées dans le dépôt, non référencées : une
+    skill du dossier personnel ne suit pas le projet.
+
+    Une skill téléchargée peut être une page d'erreur ou un fichier
+    sans en-tête — dans les deux cas elle ne se déclenchera jamais,
+    et rien ne le dira."""
+
+    def _skills(self):
+        return sorted((RACINE / ".claude" / "skills").glob(
+            "*/SKILL.md"))
+
+    def test_il_y_en_a(self):
+        assert len(self._skills()) >= 10
+
+    def test_chacune_a_un_en_tete_valide(self):
+        """Sans en-tête YAML, une skill n'est jamais invoquée."""
+        for f in self._skills():
+            texte = f.read_text(encoding="utf-8")
+            assert texte.startswith("---"), f.parent.name
+            assert "\n---" in texte[3:], f.parent.name
+
+    def test_chacune_se_declare(self):
+        """Le nom et la description sont ce qui décide de son
+        invocation : sans eux, elle est morte."""
+        for f in self._skills():
+            entete = f.read_text(encoding="utf-8").split("\n---")[0]
+            assert re.search(r"^name:", entete, re.M), f.parent.name
+            assert re.search(r"^description:", entete, re.M), \
+                f.parent.name
+
+    def test_aucun_nom_en_double(self):
+        """Deux skills du même nom : on ne sait pas laquelle
+        répond."""
+        noms = []
+        for f in self._skills():
+            entete = f.read_text(encoding="utf-8").split("\n---")[0]
+            m = re.search(r"^name:\s*(.+)$", entete, re.M)
+            if m:
+                noms.append(m.group(1).strip().strip('"'))
+        doubles = {n for n in noms if noms.count(n) > 1}
+        assert doubles == set(), doubles
+
+    def test_aucune_n_est_une_page_d_erreur(self):
+        """Un téléchargement raté rend du HTML, qui commence par
+        « --- » si on n'y prend pas garde... non : il ne commence
+        jamais ainsi, mais le vérifier coûte une ligne."""
+        for f in self._skills():
+            texte = f.read_text(encoding="utf-8")
+            assert "<!DOCTYPE" not in texte[:200], f.parent.name
+            assert len(texte) > 300, f"{f.parent.name} : {len(texte)}"
+
+    def test_le_document_dit_ce_qui_est_ecarte(self):
+        """Une liste de ce qui est installé sans les raisons de ce
+        qui ne l'est pas se refera à l'identique dans six mois."""
+        f = RACINE / ".claude" / "skills" / "README.md"
+        assert f.exists()
+        texte = f.read_text(encoding="utf-8")
+        assert "écarté" in texte and "pourquoi" in texte.lower()

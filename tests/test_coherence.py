@@ -56,7 +56,8 @@ def _sans_tables(code: str) -> str:
     réglages, la troisième des groupes. Les lire comme des tâches
     ferait réclamer un libellé scannable pour « 1 pour relire ».
     """
-    for marque, fin_marque in (("const CHOIX_ARGUMENT", "\n  };"),
+    for marque, fin_marque in (("const LOCAUX", ";"),
+                               ("const CHOIX_ARGUMENT", "\n  };"),
                                ("const CHOIX", "\n  };"),
                                ("const ARGUMENTS", "\n  };"),
                                ("const REGLAGES_RAPIDES", "\n  ];"),

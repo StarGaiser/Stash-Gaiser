@@ -53,12 +53,12 @@ class TestBoutonSurLesTroisFamilles:
     tiers du problème."""
 
     def test_le_bouton_existe(self, fiche):
-        assert 'B("generer"' in fiche
+        assert 'B("generer_ia"' in fiche
 
     def test_il_figure_sur_les_trois_types(self, fiche):
         """Compté par les branches qui le posent, non par le nombre
         d'occurrences : une seule ligne partagée conviendrait aussi."""
-        assert fiche.count('B("generer"') >= 1
+        assert fiche.count('B("generer_ia"') >= 1
         for genre in ("performer", "studio", "scene"):
             assert f'type === "{genre}"' in fiche, genre
 
@@ -124,7 +124,7 @@ class TestCeQueLaFicheDit:
     def test_le_bouton_dit_ce_qu_il_produit(self, fiche):
         """« Générer » ne dit pas quoi : une biographie, un synopsis,
         une présentation ?"""
-        i = fiche.find("generer: {")
+        i = fiche.find("generer_ia: {")
         assert i > 0
         m = re.search(r'fr:\s*"([^"]+)"', fiche[i:i + 300])
         assert m, "libellé français introuvable"

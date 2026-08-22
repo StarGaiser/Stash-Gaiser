@@ -32,7 +32,7 @@ aperçoive.
 | Aligner les conflits | **oui** | Écrase les valeurs qui contredisent les sources, au-delà du seuil de confiance. L'ancienne valeur passe dans l'historique. |
 | Retirer les tags de proposition | **oui** | Retire les tags posés par le plugin pour signaler ce qui attendait une décision. Les valeurs restent. |
 | Fusionner les doublons certains | **oui** | Ne fusionne que les paires dont la note dépasse le seuil de fusion. Les autres attendent votre arbitrage. |
-| Détecter les doublons d'interprètes | non | Marque les fiches qui semblent désigner la même personne. Ne fusionne rien : la fusion est une action distincte. |
+| Détecter les doublons d'interprètes | **oui** | Marque les fiches qui semblent désigner la même personne. Ne fusionne rien : la fusion est une action distincte. |
 | Détecter les doublons de studios | **oui** | Marque les studios qui semblent être le même. Ne fusionne rien. |
 | Marquer les rôles venus d'un import | **oui** | Signale comme « suggérés » les rôles qu'aucune source ne confirme, pour les distinguer des rôles établis. |
 | Fusionner les interprètes marqués | **oui** | Reporte scènes et alias sur la fiche conservée, puis supprime l'autre. Sans retour. |

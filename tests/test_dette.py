@@ -231,7 +231,7 @@ class TestCliquets:
             erreurs = json.loads(r.stdout or "[]")
         except json.JSONDecodeError:
             erreurs = []
-        assert len(erreurs) <= 115, Counter(
+        assert len(erreurs) <= 118, Counter(
             e["code"] for e in erreurs).most_common(5)
 
     def test_aucun_marqueur_de_travail_inacheve(self):

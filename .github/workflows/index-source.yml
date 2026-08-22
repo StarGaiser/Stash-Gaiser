@@ -50,8 +50,22 @@ jobs:
           # dans leur valeur — un test le vérifie côté dépôt.
           VERSION=$(sed -n 's/^version: *//p' gaizer/gaizer.yml \
                     | head -1 | tr -d '"'"'"'" ')
-          DESC=$(sed -n 's/^description: *//p' gaizer/gaizer.yml \
-                 | head -1)
+          # Le manifeste replie les lignes longues à 78 colonnes :
+          # c'est du YAML valide, et prendre la première ligne
+          # perdait la moitié de la description entière. Rien ne le
+          # signalait — l'index restait valide, avec une phrase
+          # inachevée.
+          #
+          # Lu sans PyYAML, que le runner n'embarque pas : les
+          # lignes de repli commencent par des espaces et se
+          # recollent.
+          DESC=$(awk '
+            /^description:/ { sub(/^description: */, ""); d = $0;
+                              suite = 1; next }
+            suite && /^[ \t]+/ { sub(/^[ \t]+/, " "); d = d $0; next }
+            suite { exit }
+            END { print d }
+          ' gaizer/gaizer.yml)
           DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           SHA=$(sha256sum site/main/gaizer.zip | cut -d' ' -f1)
 

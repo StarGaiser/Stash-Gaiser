@@ -27,24 +27,24 @@ qui le précèdent. Aucune dépendance ascendante, aucun cycle.
 
 | Couche | Module | Lignes | Rôle |
 |---|---|---|---|
-| — | `i18n.py` | 2447 411 | libellés, étiquettes, messages (7 langues) |
-| — | `sources.py` | 397 | définition et poids des sources |
+| — | `i18n.py` | 2596 411 | libellés, étiquettes, messages (7 langues) |
+| — | `sources.py` | 426 | définition et poids des sources |
 | — | `scoring.py` | 375 | familles, fiabilités, détecteurs de biais |
 | — | `llm.py` | 256 | table des fournisseurs de modèles |
-| 0 | `noyau.py` | 850 | contexte, réglages, état, sécurité, utilitaires |
+| 0 | `noyau.py` | 893 | contexte, réglages, état, sécurité, utilitaires |
 | 1 | `similarite.py` | 138 | comparaison de noms (logique pure) |
 | 1 | `collecte.py` | 446 | interrogation des sources, statistiques |
-| 2 | `ia.py` | 834 | appels aux modèles, diagnostic, rédaction |
+| 2 | `ia.py` | 887 | appels aux modèles, diagnostic, rédaction |
 | 2 | `entites.py` | 248 | propositions, créations, restauration |
 | 3 | `performers.py` | 408 | enrichissement des interprètes |
 | 3 | `scenes.py` | 568 | enrichissement des scènes |
-| 3 | `studios.py` | 203 | enrichissement des studios |
+| 3 | `studios.py` | 218 | enrichissement des studios |
 | 3 | `doublons.py` | 495 | détection et fusion |
 | 3 | `groupes.py` | 361 | films en plusieurs parties |
-| 5 | `gaizer.py` | 1265 | registre des tâches et point d'entrée |
+| 5 | `gaizer.py` | 1316 | registre des tâches et point d'entrée |
 | — | `roles.py` | 135 | position et rapport de pouvoir (logique pure) |
 | — | `tags.py` | 349 | familles de tags et mesures d'exclusion |
-| — | `gaizer_page.js` | 1362 | panneau de commande, tâches par intention |
+| — | `gaizer_page.js` | 1621 | panneau de commande, tâches par intention |
 | — | `scrapers.py` | 264 | scrapers manquants : détection et pose |
 | — | `chemins.py` | 389 | ce que le rangement dit du contenu |
 | — | `vision.py` | 553 | lecture des filigranes |
@@ -56,7 +56,7 @@ qui le précèdent. Aucune dépendance ascendante, aucun cycle.
 | — | `taches_arbitrage.py` | 370 | la seule famille qui écrase |
 | — | `taches_menage.py` | 236 | retirer ce qui encombre |
 | — | `taches_maintenance.py` | 217 | réparer l'installation |
-| — | `gaizer.js` | 1265 | actions injectées dans l'interface |
+| — | `gaizer.js` | 1316 | actions injectées dans l'interface |
 
 **Ce que la stratification impose.** `entites` a besoin de comparer des
 noms pour signaler un doublon dès la création : la comparaison a donc
@@ -188,7 +188,7 @@ fusionne et supprime des fiches, était à zéro sur 247 instructions.
 | Module | Avant | Après | Ce qu'il fait |
 |---|---|---|---|
 | `doublons.py` | 495 % | 59 % | fusionne et **supprime** |
-| `studios.py` | 203 % | 73 % | écrit sur les studios |
+| `studios.py` | 218 % | 73 % | écrit sur les studios |
 | `performers.py` | 408 % | 54 % | écrit sur les interprètes |
 | `scenes.py` | 568 % | 40 % | écrit et relie |
 | `entites.py` | 248 % | 80 % | crée et restaure |

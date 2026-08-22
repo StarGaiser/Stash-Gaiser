@@ -172,6 +172,24 @@
           + "escreve nada.",
       nl: "Toont alle waarden die de bronnen teruggeven. Schrijft "
           + "niets." },
+    generer_ia: { en: "✨ Generate a text",
+                  fr: "✨ Générer un texte",
+                  de: "✨ Text generieren",
+                  es: "✨ Generar un texto",
+                  it: "✨ Genera un testo",
+                  pt: "✨ Gerar um texto",
+                  nl: "✨ Tekst genereren" },
+    aide_generer_ia: {
+      en: "Uses a model. Writes a draft and shows it before anything "
+          + "is applied — nothing is written until you accept.",
+      fr: "Emploie un modèle. Produit un texte et le montre avant "
+          + "toute écriture — rien n'est appliqué tant que vous "
+          + "n'acceptez pas.",
+      de: "Nutzt ein Modell. Zeigt den Entwurf vor jeder Änderung.",
+      es: "Emplea un modelo. Muestra el borrador antes de escribir.",
+      it: "Usa un modello. Mostra la bozza prima di scrivere.",
+      pt: "Usa um modelo. Mostra o rascunho antes de escrever.",
+      nl: "Gebruikt een model. Toont het concept vooraf." },
     generer: { en: "Generate a text", fr: "Générer un texte",
                de: "Text generieren", es: "Generar un texto",
                it: "Genera un testo", pt: "Gerar um texto",
@@ -924,8 +942,8 @@
                       onClick: () => finir(true) }, tr("ap_ecrire")),
         e("button", { className: "btn btn-sm btn-secondary",
                       onClick: () => finir(false) }, tr("ap_annuler")),
-        etat ? e("span", { className: "text-muted small" }, etat)
-             : null));
+        e("span", { className: "text-muted small",
+                    "aria-live": "polite" }, etat || "")));
   }
 
   function Actions(props) {
@@ -962,7 +980,9 @@
     // panneau, on recommence. Ici, un essai coute un appel.
     const idGen = (MODES_GENERATION[type] || [])[0];
     if (idGen && !cf.enrich_apercu) {
-      B("generer",
+      // Marqué « IA » comme au panneau : un marquage vrai à moitié
+      // ne vaut rien, puisqu'on ne saurait plus lequel croire.
+      B("generer_ia",
         (signaler) => runModeEtAttendre(
           "generer_apercu", { [idGen]: fiche.id }, signaler),
         false);

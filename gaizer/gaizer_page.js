@@ -35,6 +35,53 @@
     redaction: "faPenNib",
   };
 
+  // L'icone dit qu'un modele intervient. La MEME partout, sinon
+  // elle n'apprend rien.
+  //
+  // Elle porte une bulle : une icone seule n'apprend rien a qui ne
+  // la connait pas, et rien du tout a qui ne voit pas l'ecran. Le
+  // texte de la bulle porte l'information, donc l'icone elle-meme
+  // est masquee aux lecteurs d'ecran — la faire annoncer deux fois
+  // serait du bruit.
+  // Un service local — Ollama, LM Studio — n'envoie rien dehors.
+  // La distinction se lit sur l'adresse : une liste de noms
+  // perimerait au premier fournisseur ajoute.
+  const LOCAUX = ["ollama", "lmstudio", "llamacpp", "vllm"];
+
+  function estLocal(modele) {
+    const nom = String(modele || "").split(":")[0].toLowerCase();
+    if (!nom) return null;                 // rien de configure
+    return LOCAUX.includes(nom)
+      || /localhost|127\.0\.0\.1|host\.docker/.test(String(modele));
+  }
+
+  function IconeIA(props) {
+    const nature = TACHES_IA[props.mode];
+    if (!nature) return null;
+    const sansModele = !props.modele;
+    const bulle = sansModele
+      ? tr("ia_sans_modele")
+      : tr(nature === "redige" ? "ia_redige" : "ia_lit")
+        + " · " + props.modele;
+    if (!FA || !RFA || !RFA.FontAwesomeIcon) {
+      // Sans les bibliotheques d'icones, le texte reste : degrader
+      // vers rien priverait de l'information, pas seulement du
+      // dessin.
+      return e("span", {
+        className: sansModele ? "text-warning small" : "text-muted small",
+        title: bulle,
+      }, sansModele ? "⚠ IA" : "IA");
+    }
+    const glyphe = FA[nature === "redige" ? "faWandMagicSparkles"
+                                          : "faEye"];
+    if (!glyphe) return null;
+    return e("span", {
+      className: sansModele ? "text-warning" : "text-muted",
+      title: bulle,
+      style: { marginRight: ".4rem" },
+    }, e(RFA.FontAwesomeIcon, { icon: glyphe, "aria-hidden": true }));
+  }
+
   function Icone(props) {
     if (!FA || !RFA || !RFA.FontAwesomeIcon) return null;
     const glyphe = FA[ICONES[props.cle]];
@@ -330,6 +377,34 @@
       it: "Partire dal prompt predefinito",
       pt: "Partir do prompt por omissão",
       nl: "Beginnen met de standaardprompt" },
+    d_local: {
+      en: "This model runs on your machine: nothing leaves it.",
+      fr: "Ce modèle tourne sur votre machine : rien n'en sort.",
+      de: "Dieses Modell läuft auf Ihrem Rechner: nichts verlässt "
+          + "ihn.",
+      es: "Este modelo se ejecuta en su máquina: nada sale de ella.",
+      it: "Questo modello gira sulla sua macchina: nulla ne esce.",
+      pt: "Este modelo corre na sua máquina: nada sai dela.",
+      nl: "Dit model draait op uw machine: er gaat niets naar "
+          + "buiten." },
+    d_distant: {
+      en: "This model runs on a third-party service. Scene titles, "
+          + "performer names and existing presentations are sent to "
+          + "it. A local model (Ollama, LM Studio) sends nothing.",
+      fr: "Ce modèle tourne chez un service tiers. Les titres de "
+          + "scènes, les noms d'interprètes et les présentations "
+          + "existantes lui sont envoyés. Un modèle local (Ollama, "
+          + "LM Studio) n'envoie rien.",
+      de: "Dieses Modell läuft bei einem Drittanbieter. Szenentitel, "
+          + "Darstellernamen und vorhandene Texte werden übermittelt.",
+      es: "Este modelo corre en un servicio de terceros. Se le envían "
+          + "títulos de escenas, nombres de actores y presentaciones.",
+      it: "Questo modello gira su un servizio terzo. Gli vengono "
+          + "inviati titoli di scene, nomi di attori e presentazioni.",
+      pt: "Este modelo corre num serviço terceiro. São-lhe enviados "
+          + "títulos de cenas, nomes de atores e apresentações.",
+      nl: "Dit model draait bij een externe dienst. Scènetitels, "
+          + "namen en bestaande teksten worden verzonden." },
     mod_titre: { en: "Choosing a model", fr: "Choisir un modèle",
                  de: "Modellwahl", es: "Elegir un modelo",
                  it: "Scegliere un modello",
@@ -439,6 +514,32 @@
           + "melhor do que tudo.",
       nl: "Een tekst die een studio of persoon noemt die niet in de "
           + "gegevens staat, wordt geweigerd." },
+    ia_redige: {
+      en: "Uses a model to write text",
+      fr: "Emploie un modèle pour rédiger un texte",
+      de: "Nutzt ein Modell zum Schreiben",
+      es: "Emplea un modelo para redactar",
+      it: "Usa un modello per scrivere",
+      pt: "Usa um modelo para redigir",
+      nl: "Gebruikt een model om te schrijven" },
+    ia_lit: {
+      en: "Uses a model to read, without writing text",
+      fr: "Emploie un modèle pour lire, sans rédiger",
+      de: "Nutzt ein Modell zum Lesen, ohne zu schreiben",
+      es: "Emplea un modelo para leer, sin redactar",
+      it: "Usa un modello per leggere, senza scrivere",
+      pt: "Usa um modelo para ler, sem redigir",
+      nl: "Gebruikt een model om te lezen, zonder te schrijven" },
+    ia_sans_modele: {
+      en: "Needs a model — none is configured, so this task will do "
+          + "nothing.",
+      fr: "Réclame un modèle — aucun n'est configuré, cette tâche ne "
+          + "fera rien.",
+      de: "Benötigt ein Modell — keines konfiguriert.",
+      es: "Requiere un modelo — ninguno configurado.",
+      it: "Richiede un modello — nessuno configurato.",
+      pt: "Requer um modelo — nenhum configurado.",
+      nl: "Vereist een model — geen geconfigureerd." },
     m_titre: { en: "Model used", fr: "Modèle employé",
                de: "Verwendetes Modell", es: "Modelo empleado",
                it: "Modello impiegato", pt: "Modelo utilizado",
@@ -607,6 +708,27 @@
   // Une faute de frappe sur un texte libre passe inapercue : la
   // valeur est ignoree, sans message. Fermer ce qui peut l'etre
   // supprime ce risque plutot que de l'annoncer.
+  // Ce qui appelle un modele de langue, et de quelle facon.
+  //
+  // Deux natures, parce que ce ne sont pas les memes precautions :
+  //   « redige »  produit un TEXTE, qu'il faudra relire
+  //   « lit »     interroge un modele sans rien ecrire
+  //
+  // La liste est verifiee contre le code : une tache non marquee
+  // laisserait croire qu'elle est gratuite, et une tache marquee a
+  // tort ferait craindre un cout inexistant — on cesserait alors de
+  // croire le marquage.
+  const TACHES_IA = {
+    enrich_performers: "redige",
+    enrich_one_performer: "redige",
+    apply_accepted: "redige",
+    regenerate_biohot: "redige",
+    generer_apercu: "redige",
+    lire_vignettes: "lit",
+    lire_generiques: "lit",
+    etat_agent: "lit",
+  };
+
   const ARGUMENTS = {
     // Sur une fiche precise : l'identifiant vient du contexte, mais
     // ces taches restent lancables depuis l'ecran des plugins.
@@ -943,6 +1065,9 @@
             champ = e("select", {
               className: "custom-select custom-select-sm",
               style: { maxWidth: "17rem" },
+              // L'enveloppe <label> est vingt lignes plus bas : un
+              // titre lève l'ambiguïté sans rien coûter.
+              title: libelle,
               value: brut === undefined ? "" : String(brut),
               onChange: (ev) => ecrire(cle, ev.target.value),
             }, (CHOIX[cle] || []).map(([v, lib]) =>
@@ -953,6 +1078,9 @@
               min: forme === "nombre" ? 1 : undefined,
               className: "form-control form-control-sm",
               style: { maxWidth: "6.5rem" },
+              // L'étiquette dit ce qu'est le réglage, l'invite ce
+              // qu'on y met : sur un nombre, les deux servent.
+              title: libelle,
               defaultValue: brut === undefined ? "" : String(brut),
               onBlur: (ev) => ecrire(cle, ev.target.value) });
           }
@@ -971,8 +1099,10 @@
             style: { gap: ".45rem" },
           }, avant ? libelle : champ, avant ? champ : libelle);
         }),
-        etat ? e("span", { className: "text-muted small" }, etat)
-             : null));
+        // Annoncé aux lecteurs d'écran : sans cela, celui qui
+        // ne voit pas l'écran ignore que son action a abouti.
+        e("span", { className: "text-muted small",
+                    "aria-live": "polite" }, etat || "")));
   }
 
   // La forme d'un champ doit dire ce qu'il attend. Un champ vide
@@ -1002,6 +1132,11 @@
       return e("select", {
         className: "custom-select custom-select-sm flex-shrink-0",
         style: { maxWidth: "12rem" },
+        // Sans nom, un lecteur d'écran annonce « liste » sans dire
+        // de quoi : les autres champs sont dans un <label>, pas
+        // celui-ci.
+        "aria-label": invite,
+        title: invite,
         value: valeur,
         onChange: (ev) => poser(ev.target.value),
       }, valeurs.map(([v, libelle]) =>
@@ -1071,7 +1206,9 @@
       e("div", { className: "flex-grow-1", style: { minWidth: 0 } },
         e("div", null,
           e("span", { className: props.principal
-            ? "font-weight-bold" : "" }, props.libelle),
+            ? "font-weight-bold" : "" },
+          e(IconeIA, { mode: props.mode, modele: props.modele }),
+          props.libelle),
           props.destructif
             ? e("span", { className: "text-danger small ml-2" },
                 tr("destructif"))
@@ -1082,10 +1219,10 @@
           ? e("div", { className: "text-muted small",
                        style: { lineHeight: 1.35 } }, props.aide)
           : null),
-      etat
-        ? e("span", { className: "text-muted small flex-shrink-0" },
-            etat)
-        : null,
+      // La zone existe toujours, même vide : une zone créée au
+      // moment du changement ne serait pas relue.
+      e("span", { className: "text-muted small flex-shrink-0",
+                  "aria-live": "polite" }, etat || ""),
       arg ? _champArgument(arg, valeurArg, setValeurArg) : null,
       props.destructif
         ? e("button", {
@@ -1194,7 +1331,15 @@
                               fontSize: ".72rem" } },
           tr("mod_titre")),
         e("div", { className: "text-muted small",
-                   style: { maxWidth: "44rem" } }, tr("mod_texte"))),
+                   style: { maxWidth: "44rem" } }, tr("mod_texte")),
+        // Ou partent les donnees : ce que l'utilisateur doit savoir
+        // AVANT de choisir son modele, non apres.
+        modele
+          ? e("div", { className: estLocal(modele)
+                        ? "small mt-2" : "text-warning small mt-2",
+                      style: { maxWidth: "44rem" } },
+              tr(estLocal(modele) ? "d_local" : "d_distant"))
+          : null),
       e("div", { className: "mb-4" },
         e("label", { className: "text-muted text-uppercase mb-1 d-block",
                      style: { letterSpacing: ".06em",
@@ -1243,9 +1388,8 @@
           onClick: () => { setPrompt(""); setTemp("");
                            enregistrer("", ""); },
         }, tr("defaut")),
-        etat
-          ? e("span", { className: "text-muted small ml-2" }, etat)
-          : null),
+        e("span", { className: "text-muted small ml-2",
+                    "aria-live": "polite" }, etat || "")),
       e("hr", { className: "my-4" }),
       e("div", { className: "text-muted small mb-2" },
         tr("essai_aide")),

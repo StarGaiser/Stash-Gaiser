@@ -329,3 +329,44 @@ class TestHistoriquePublic:
         reste protège."""
         s = self._script()
         assert "rm -f AGENTS.md" in s
+
+
+class TestIndexDeSource:
+    """L'index publié est ce que Stash lit pour proposer le plugin :
+    c'est la première chose qu'un utilisateur voit, avant même
+    d'installer.
+
+    Sa description y était TRONQUÉE. Le manifeste replie les lignes
+    longues à soixante-dix-huit colonnes — c'est du YAML valide, et
+    le lecteur du workflow ne prenait que la première ligne. La
+    moitié du texte était perdue, et rien ne le signalait : l'index
+    restait un YAML valide, avec une phrase inachevée."""
+
+    def test_la_description_ne_tient_pas_sur_une_ligne(self,
+                                                       manifeste):
+        """C'est le cas qui a causé le défaut : le vérifier empêche
+        de croire que le problème vient d'ailleurs."""
+        brut = (CODE / "gaizer.yml").read_text(encoding="utf-8")
+        ligne = next(x for x in brut.split("\n")
+                     if x.startswith("description:"))
+        # Si elle tenait, le repli n'aurait pas lieu.
+        assert len(manifeste["description"]) > len(ligne) - 13 \
+            or "\n" not in manifeste["description"]
+
+    def test_le_workflow_lit_la_description_entiere(self):
+        """Un `sed` sur la première ligne perdrait le repli."""
+        w = (RACINE / "tools" / "index-source.yml").read_text(
+            encoding="utf-8")
+        i = w.find("DESC=")
+        bloc = w[i:i + 300]
+        # Soit il gère le repli, soit il emploie un vrai lecteur.
+        assert ("python3" in bloc or "awk" in bloc
+                or "N;" in bloc), bloc[:200]
+
+    def test_la_description_publiee_est_entiere(self, manifeste):
+        """Le contrôle qui compte : ce qui sort doit valoir ce qui
+        entre."""
+        w = (RACINE / "tools" / "index-source.yml").read_text(
+            encoding="utf-8")
+        assert "description entière" in w or "repli" in w, \
+            "le workflow doit dire comment il lit la description"

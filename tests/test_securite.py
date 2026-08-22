@@ -17,6 +17,7 @@ Un test de sécurité doit être PLUS strict qu'un test fonctionnel :
 de confiance coûte une compromission.
 """
 
+import ast
 import re
 from pathlib import Path
 
@@ -422,3 +423,216 @@ class TestSimulationParArgument:
         l'utilisateur veut éprouver UNE action."""
         ctx = self._ctx({"dryRun": False}, {"dryRun": "1"})
         assert ctx.simulation()
+
+
+class TestOwaspLlm:
+    """Audit selon OWASP Top 10 pour les applications à modèle de
+    langue (2025), tel que Microsoft l'encode.
+
+    Ce plugin envoie des données à un modèle et ÉCRIT ses réponses
+    dans une médiathèque. C'est exactement le péril de LLM05 —
+    « improper output handling » : une sortie de modèle traitée comme
+    une donnée de confiance.
+
+    L'audit initial a relevé vingt-trois points ; vingt-et-un étaient
+    des faux positifs de mes propres motifs — « re.compile » pris
+    pour « compile », « cle » de dictionnaire pris pour un secret. Un
+    audit bruyant cesse d'être lu, ce qui est pire qu'aucun audit."""
+
+    def _py(self):
+        return {f.stem: f.read_text(encoding="utf-8")
+                for f in RACINE.glob("*.py")}
+
+    def test_aucune_sortie_n_atteint_un_interpreteur(self):
+        """LLM05 : `eval` ou `exec` sur une sortie de modèle donne
+        l'exécution de code à qui contrôle le prompt."""
+        fautes = []
+        for nom, code in self._py().items():
+            for m in re.finditer(r"(?<![.\w])(eval|exec)\s*\(", code):
+                fautes.append(f"{nom}:{code[:m.start()].count(chr(10)) + 1}")
+        assert fautes == [], fautes
+
+    def test_aucun_shell(self):
+        for nom, code in self._py().items():
+            assert "shell=True" not in code, nom
+
+    def test_aucune_sortie_dans_le_html(self):
+        """Une présentation générée s'affiche dans Stash : la poser
+        en HTML brut donnerait du XSS à qui contrôle le modèle."""
+        for f in RACINE.glob("*.js"):
+            texte = f.read_text(encoding="utf-8")
+            assert "dangerouslySetInnerHTML" not in texte, f.name
+            assert "innerHTML =" not in texte, f.name
+
+    def test_la_sortie_est_controlee_avant_ecriture(self):
+        """Le contrôle des noms propres est la seule barrière entre
+        ce que le modèle invente et ce qui entre dans la
+        médiathèque."""
+        ia = (RACINE / 'ia.py').read_text(encoding="utf-8")
+        i = ia.find("def generer_bio_hot")
+        assert i > 0
+        assert "noms_verifies" in ia[i:i + 4000]
+
+    def test_la_consommation_est_bornee(self):
+        """LLM10 : sans plafond, une boucle sur une collection épuise
+        un quota payant."""
+        ia = (RACINE / 'ia.py').read_text(encoding="utf-8")
+        assert "BUDGETS" in ia
+        assert "maxLlmCalls" in (RACINE / 'gaizer.yml').read_text(
+            encoding="utf-8")
+
+    def test_chaque_appel_sortant_a_un_delai(self):
+        """Un service qui ne répond jamais bloquerait la tâche
+        indéfiniment."""
+        fautes = []
+        for nom, code in self._py().items():
+            for m in re.finditer(r"urlopen\(|requests\.(get|post)\(",
+                                 code):
+                if "timeout" not in code[m.start():m.start() + 400]:
+                    fautes.append(nom)
+        assert fautes == [], fautes
+
+    def test_aucun_secret_journalise(self):
+        """LLM02 : une clé dans le journal est une clé publiée, le
+        journal étant lisible depuis l'interface de Stash."""
+        fautes = []
+        for nom, code in self._py().items():
+            for m in re.finditer(
+                    r"log\.\w+\([^)]*\{[^}]*\b(\w*[Aa]pi[_]?[Kk]ey|"
+                    r"\w*[Tt]oken|\w*[Ss]ecret|password)\b", code):
+                fautes.append(f"{nom}:{code[:m.start()].count(chr(10)) + 1}")
+        assert fautes == [], fautes
+
+    def test_toute_adresse_distante_est_jugee(self):
+        """Une image proposée par une source est téléchargée par le
+        serveur : sans contrôle, une source compromise ferait
+        interroger le réseau local."""
+        vision = (RACINE / 'vision.py').read_text(encoding="utf-8")
+        i = vision.find("return _telecharger(url)")
+        assert i > 0
+        # L'appelant juge l'adresse avant d'appeler.
+        assert "adresse_de_stash" in vision[max(0, i - 400):i]
+
+
+class TestReconnaissanceDesSecrets:
+    """`est_secret` décide de ce qui ne sort jamais : ni dans un
+    export, ni dans le journal, ni dans le fichier d'état.
+
+    Elle ne reconnaissait que des formes ANGLAISES. Un réglage nommé
+    « cleApi » ou « motDePasse » — plausible dans un plugin dont
+    l'interface est française — serait sorti dans un fichier qu'on
+    transporte ou qu'on colle dans un ticket.
+
+    Aucun réglage actuel n'est dans ce cas : le défaut est latent,
+    non effectif. Mais il se réaliserait au premier réglage nommé en
+    français, et rien ne l'aurait signalé."""
+
+    def test_les_formes_anglaises_sont_reconnues(self):
+        for nom in ("llmApiKey", "apiToken", "mySecret",
+                    "userPassword", "credentialX", "authBearer"):
+            assert noyau.est_secret(nom), nom
+
+    def test_les_formes_francaises_aussi(self):
+        """L'interface de ce plugin est française : un réglage y
+        sera nommé en français tôt ou tard."""
+        for nom in ("cleApi", "motDePasse", "jetonAcces",
+                    "identifiantSecret"):
+            assert noyau.est_secret(nom), nom
+
+    def test_un_reglage_ordinaire_n_est_pas_un_secret(self):
+        """Tout classer en secret viderait l'export de sa
+        substance."""
+        for nom in ("applyMode", "batchSize", "llmUrl", "aiDefault",
+                    "tagProfile", "language", "cacheJours"):
+            assert not noyau.est_secret(nom), nom
+
+    def test_la_casse_ne_compte_pas(self):
+        for nom in ("LLMAPIKEY", "Api_Key", "MOT_DE_PASSE"):
+            assert noyau.est_secret(nom), nom
+
+    def test_valeurs_absurdes(self):
+        for nom in ("", None, 42):
+            assert isinstance(noyau.est_secret(nom), bool), nom
+
+    def test_aucun_reglage_du_manifeste_n_echappe(self):
+        """Le contrôle qui compte : ce qui porte un identifiant dans
+        le manifeste réel doit être reconnu."""
+        import yaml
+        d = yaml.safe_load((RACINE / "gaizer.yml").read_text(
+            encoding="utf-8"))
+        for cle in d["settings"]:
+            porteur = any(m in cle.lower() for m in
+                          ("key", "token", "secret", "password",
+                           "cle", "jeton", "motdepasse"))
+            if porteur:
+                assert noyau.est_secret(cle), cle
+
+
+class TestRequetesNonConstruites:
+    """Revue menée selon la méthode de « security-review » : tracer
+    la donnée avant de signaler, ne rapporter que ce dont on est sûr.
+
+    Un motif seul ne suffit pas — cherché à la main, il donnait
+    quinze requêtes « construites dynamiquement », toutes fausses :
+    le motif attrapait le journal voisin, pas la requête.
+
+    La question juste porte sur le PREMIER argument de `call_GQL` :
+    un littéral ou une constante nommée est sûr, une concaténation
+    ne l'est pas."""
+
+    def test_aucune_requete_construite(self):
+        """Une requête assemblée depuis une valeur extérieure — nom
+        d'interprète, argument de tâche — accepte l'injection."""
+        douteuses = []
+        for f in RACINE.glob("*.py"):
+            code = f.read_text(encoding="utf-8")
+            arbre = ast.parse(code)
+            for n in ast.walk(arbre):
+                if not isinstance(n, ast.Call):
+                    continue
+                if getattr(n.func, "attr", "") != "call_GQL":
+                    continue
+                if not n.args:
+                    continue
+                req = n.args[0]
+                # Littéral, constante nommée, ou entrée de table :
+                # dans les trois cas la requête est écrite au clair
+                # dans le code, non assemblée à l'exécution.
+                if isinstance(req, (ast.Constant, ast.Name,
+                                    ast.Subscript)):
+                    continue
+                douteuses.append(f"{f.stem}:{n.lineno}")
+        assert douteuses == [], douteuses
+
+    def test_les_valeurs_passent_en_variables(self):
+        """C'est ce qui rend l'injection impossible : le serveur
+        distingue la requête de ses paramètres."""
+        exemples = 0
+        for f in RACINE.glob("*.py"):
+            code = f.read_text(encoding="utf-8")
+            arbre = ast.parse(code)
+            for n in ast.walk(arbre):
+                if not isinstance(n, ast.Call):
+                    continue
+                if getattr(n.func, "attr", "") != "call_GQL":
+                    continue
+                if len(n.args) >= 2:
+                    exemples += 1
+        assert exemples >= 20, exemples
+
+    def test_aucun_puits_grave(self):
+        """Exécution de code, commande système, désérialisation : les
+        trois puits où une donnée extérieure devient une action."""
+        motifs = {
+            "exécution": r"(?<![.\w])(eval|exec)\s*\(",
+            "commande": r"subprocess\.|os\.system|shell\s*=\s*True",
+            "désérialisation": r"pickle\.|marshal\.",
+        }
+        fautes = []
+        for f in RACINE.glob("*.py"):
+            code = f.read_text(encoding="utf-8")
+            for quoi, motif in motifs.items():
+                for m in re.finditer(motif, code):
+                    ligne = code[:m.start()].count("\n") + 1
+                    fautes.append(f"{quoi} {f.stem}:{ligne}")
+        assert fautes == [], fautes

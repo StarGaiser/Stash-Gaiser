@@ -592,3 +592,121 @@ class TestAucuneTraductionEnDouble:
         fiche = self._table("gaizer.js")
         commun = set(panneau) & set(fiche)
         assert len(commun) <= 6, sorted(commun)
+
+
+class TestEcritureDesChampsLibres:
+    """Vingt-et-une écritures de `custom_fields` avec la même forme
+    `{"partial": {...}}`, réparties dans huit modules.
+
+    La forme est celle de l'API Stash : « partial » complète au lieu
+    de remplacer. L'oublier une fois EFFACERAIT tous les autres
+    champs libres de la fiche — l'historique, les propositions, les
+    empreintes — et rien ne le signalerait avant que quelqu'un les
+    cherche.
+
+    Le coût n'est pas la répétition mais ce qu'elle rend possible :
+    une seule occurrence écrite de travers, et la donnée est perdue.
+    Un point unique rend l'erreur impossible plutôt que peu
+    probable."""
+
+    def test_la_forme_partielle_est_toujours_employee(self):
+        """Une écriture sans « partial » remplace la table entière."""
+        fautes = []
+        for f in CODE.glob("*.py"):
+            code = f.read_text(encoding="utf-8")
+            for m in re.finditer(r'"custom_fields":\s*\{', code):
+                suite = code[m.end():m.end() + 40]
+                # « remove » est une autre opération de l'API, et une
+                # CRÉATION n'a rien à préserver : la fiche n'existe
+                # pas encore. Les deux sont légitimes.
+                if '"partial"' in suite or '"remove"' in suite:
+                    continue
+                avant = code[max(0, m.start() - 300):m.start()]
+                if "Create" in avant:
+                    continue
+                ligne = code[:m.start()].count("\n") + 1
+                fautes.append(f"{f.stem}:{ligne}")
+        assert fautes == [], fautes
+
+    def test_le_nombre_d_ecritures_ne_croit_pas(self):
+        """Chaque nouvelle occurrence est une chance de plus
+        d'oublier « partial ». Le seuil ne descend jamais : le
+        dépasser doit faire écrire un point unique, non relever le
+        cliquet."""
+        n = sum(len(re.findall(r'"custom_fields":\s*\{"partial"',
+                               f.read_text(encoding="utf-8")))
+                for f in CODE.glob("*.py"))
+        assert n <= 25, (
+            f"{n} écritures de champs libres : au-delà, écrire une "
+            f"fonction unique plutôt que de relever ce seuil")
+
+
+class TestAucunEffetDeBordMasque:
+    """Une tâche dont le nom annonce une LECTURE ne doit pas écrire.
+
+    « Détecter les doublons » pose un tag sur chaque fiche suspecte ;
+    « Lire les chemins » remplit les champs vides. Les deux sont
+    utiles, et les deux surprennent : on lance une détection pour
+    voir, pas pour modifier.
+
+    Le remède n'est pas de les empêcher d'écrire — ce qu'elles
+    écrivent est leur intérêt — mais de le DIRE dès le nom. Un
+    utilisateur qui découvre après coup qu'une tâche « de lecture » a
+    touché huit cents fiches cesse de faire confiance au reste."""
+
+    LECTURE = re.compile(
+        r"^(lire|rapport|verifier|controler|etat|inspecter|"
+        r"proposer|detect)")
+    ECRITURES = ("update_performer", "update_scene", "update_studio",
+                 "Destroy", "Create(")
+
+    def _ecrit(self, source):
+        return any(e in source for e in self.ECRITURES)
+
+    def test_toute_tache_qui_ecrit_le_dit_dans_sa_description(self):
+        """Le nom peut annoncer une lecture si la description
+        rattrape : ce qui est intolérable est le silence."""
+        import yaml
+        d = yaml.safe_load((CODE / "gaizer.yml").read_text(
+            encoding="utf-8"))
+        descriptions = {
+            (t.get("defaultArgs") or {}).get("mode"):
+            str(t.get("description") or "")
+            for t in d["tasks"]}
+
+        muettes = []
+        for f in CODE.glob("*.py"):
+            code = f.read_text(encoding="utf-8")
+            arbre = ast.parse(code)
+            for n in arbre.body:
+                if not isinstance(n, ast.FunctionDef):
+                    continue
+                if not self.LECTURE.match(n.name):
+                    continue
+                if n.name not in descriptions:
+                    continue
+                src = ast.get_source_segment(code, n) or ""
+                if not self._ecrit(src):
+                    continue
+                desc = descriptions[n.name].lower()
+                # La description doit annoncer l'écriture.
+                if not any(m in desc for m in
+                           ("écrit", "flags", "marque", "pose",
+                            "remplit", "fills", "tag")):
+                    muettes.append(n.name)
+        assert muettes == [], muettes
+
+    def test_l_inventaire_classe_ces_taches_comme_ecrivant(self):
+        """L'inventaire distingue ce qui écrit de ce qui regarde :
+        s'y tromper est pire que ne rien dire, puisqu'on s'y fie."""
+        f = RACINE / "docs" / "INVENTAIRE_TACHES.md"
+        if not f.exists():
+            return
+        texte = f.read_text(encoding="utf-8")
+        for tache in ("Détecter les doublons d'interprètes",
+                      "Lire studio et distribution"):
+            i = texte.find(tache)
+            if i < 0:
+                continue
+            ligne = texte[i:texte.find("\n", i)]
+            assert "**oui**" in ligne, f"{tache} : {ligne[:80]}"

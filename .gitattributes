@@ -3,3 +3,18 @@
 # l'archive publiable — c'est ce que l'audit d'anonymat
 # examine.
 AGENTS.md export-ignore
+
+# SKILLS_INVENTORY.md nomme la machine et décrit un environnement de
+# travail : document de travail, comme AGENTS.md.
+SKILLS_INVENTORY.md export-ignore
+AUDIT_*.md export-ignore
+INSTRUCTIONS_*.md export-ignore
+ui-prototype-*.html export-ignore
+
+# Les skills viennent de TIERS et ne sont pas le plugin : elles
+# outillent qui travaille dessus. Les publier alourdirait l'archive
+# de plusieurs centaines de kilo-octets, redistribuerait du code
+# sous d'autres licences, et ferait signaler par l'audit d'anonymat
+# des fichiers qui documentent les adresses locales pour enseigner
+# à s'en protéger.
+.claude/ export-ignore
